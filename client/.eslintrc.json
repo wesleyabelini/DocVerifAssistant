@@ -1,0 +1,9 @@
+{
+  "plugins": [
+    "office-addins"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:office-addins/recommended"
+  ]
+}

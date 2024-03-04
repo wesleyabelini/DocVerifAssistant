@@ -1,0 +1,113 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+<!-- This file shows how to design a first-run page that provides a welcome screen to the user about the features of the add-in. -->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cartório</title>
+
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.1.2/dist/axios.min.js"></script>
+    <script src="../../node_modules/jquery/dist/jquery.min.js"></script>
+
+    <!-- For more information on Fluent UI, visit https://developer.microsoft.com/fluentui#/. -->
+    <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-core/11.0.0/css/fabric.min.css"/>
+
+    <!-- Template styles -->
+    <link href="taskpane.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body class="ms-font-m ms-welcome ms-Fabric">
+    <header class="ms-welcome__header ms-bgColor-neutralLighter">
+        <img width="30" height="30" src="../../assets/logo-filled.png" alt="Cartório" title="Cartório" />
+        <h1 class="ms-font-su">Cartório</h1>
+        <div class="keyclass active">
+            <input id="txtKey" type="text" placeholder="Chave"/>
+            <button onclick="cadastrarChave();">Cadastrar</button>
+        </div>
+        <div class="searchgpt">
+            <select id="cmbProcesso">
+                <option value="contrato_imovel">Contrato Imóvel</option>
+            </select>
+            <button onclick="Processar();">Processar</button>
+        </div>
+        <label id="lblResposta"></label>
+    </header>
+</body>
+<script>
+    let app_key = localStorage.getItem("app_key");
+    let enum_Instrucao = {
+        "contrato_imovel": "O documento abaixo é um contrato de locação de imóvel e alguns campos são obrigatórios. Analise o documento e verifique se contém as seguintes informações que são obrigatórias para o locador e locatário:[nome, rg, cpf, endereço, profissão, conta para realizar o pagamento].Descreva as informações faltantes\nDocumento='"
+    }
+
+    $(document).ready(function (){
+        if(app_key){
+            setActive();
+        }
+    });
+
+    function cadastrarChave(){
+        if(checkkey()){
+            setActive();
+        }
+        else{
+            $("#txtKey")[0].value = "";
+        }
+    }
+
+    function setActive(){
+        $(".keyclass").removeClass("active");
+        $(".searchgpt").addClass("active");
+    }
+
+    function Processar(){
+        getWordText();
+    }
+
+    function getWordText(){
+        Word.run(function(context){
+            let body = context.document.body;
+            context.load(body, "text");
+
+            return context.sync().then(async function(){
+                console.log(body.text);
+                $("#lblResposta")[0].innerText = await gpt(enum_Instrucao[$("#cmbProcesso").val()] + body.text + "'", 'gpt-3.5-turbo');
+            });
+        });
+    }
+
+    async function checkkey(){
+        let key = $("#txtKey")[0].value;
+        const response = await axios.post(
+            'https://cartoriochatserver.azurewebsites.net/checkkey',
+            {
+              'key': key
+            });
+
+        if(response.status === 200){
+            app_key = key;
+            localStorage.setItem("app_key", app_key);
+            return true;
+        }
+
+        return false;
+    }
+
+    async function gpt(message, model){
+        const response = await axios.post(
+            'https://cartoriochatserver.azurewebsites.net/gpt',
+            {
+              'model': model,
+              'message': message,
+              'key': app_key
+            });
+
+        return response.data;
+    }
+</script>
+</html>
